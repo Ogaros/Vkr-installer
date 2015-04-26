@@ -9,6 +9,10 @@
 #include <windows.h>
 #include <iostream>
 #include <QUrl>
+#include <DBManager.h>
+#include <QCryptographicHash>
+#include <QByteArray>
+#include <random>
 
 namespace Ui {
 class MainWindow;
@@ -25,11 +29,15 @@ public:
 public slots:
     void refreshDeviceList();
     void openSelectedDir();
+    void installEncryptor();
 
 private:
     std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> detectDevices();
     void fillDeviceList(std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> pDevices);
+    QByteArray generateKey();
+    QByteArray generateHash(QByteArray &data);
     Ui::MainWindow *ui;
+    DBManager db;
 };
 
 #endif // MAINWINDOW_H

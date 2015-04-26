@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "sqlite3.h"
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -9,6 +10,7 @@ MainWindow::MainWindow(QWidget *parent) :
     refreshDeviceList();
     connect(ui->refreshButton, SIGNAL(clicked()), this, SLOT(refreshDeviceList()));
     connect(ui->openButton, SIGNAL(clicked()), this, SLOT(openSelectedDir()));
+    connect(ui->installButton, SIGNAL(clicked()), this, SLOT(installEncryptor()));
 }
 
 std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> MainWindow::detectDevices()
@@ -38,7 +40,7 @@ std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> MainW
             dwDrives = dwDrives >> 1;
             path[0]++;
         }
-    pDevices->emplace_back("D:\\Users\\Ogare\\Desktop\\TestFolder\\", "Test folder", 0, 0);
+    pDevices->emplace_back("D:\\Users\\Ogare\\Desktop\\InstallTest\\", "Test folder", 0, 0);
     return pDevices;
 }
 
@@ -62,6 +64,23 @@ void MainWindow::fillDeviceList(std::unique_ptr<std::vector<std::tuple<QString, 
     }
 }
 
+QByteArray MainWindow::generateKey()
+{
+    QByteArray key;
+    std::mt19937 randGenerator(std::rand());
+    std::uniform_int_distribution<char> distribution(std::numeric_limits<char>::min(), std::numeric_limits<char>::max());
+    for(int i = 0; i < 32; i++)
+    {
+        key.append(distribution(randGenerator));
+    }
+    return key;
+}
+
+QByteArray MainWindow::generateHash(QByteArray &data)
+{
+    return QCryptographicHash::hash(data, QCryptographicHash::Sha512);
+}
+
 void MainWindow::refreshDeviceList()
 {
     ui->deviceList->clear();
@@ -78,6 +97,18 @@ void MainWindow::openSelectedDir()
 {
     QTreeWidgetItem *item = ui->deviceList->selectedItems().front();
     QDesktopServices::openUrl(QUrl("file:///" + item->data(0, Qt::UserRole).toString()));
+}
+
+void MainWindow::installEncryptor()
+{
+    QByteArray key, hash;
+    do
+    {
+        key = generateKey();
+        hash = generateHash(key);
+    }
+    while(db.hashExists(hash));
+    db.addHash(hash);
 }
 
 MainWindow::~MainWindow()
