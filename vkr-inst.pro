@@ -11,7 +11,9 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 TARGET = vkr-inst
 TEMPLATE = app
 
-LIBS += D:\Projects\vkr-installer\sqlite3.dll
+LIBS += D:\Projects\vkr-installer\usbSerialAdapter.lib\
+        D:\Projects\vkr-installer\sqlite3.dll
+
 
 SOURCES += main.cpp\
         mainwindow.cpp \
@@ -19,7 +21,8 @@ SOURCES += main.cpp\
 
 HEADERS  += mainwindow.h \
     sqlite3.h \
-    DBManager.h
+    DBManager.h \
+    usbSerialAdapter.h
 
 FORMS    += mainwindow.ui
 
