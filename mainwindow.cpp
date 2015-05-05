@@ -3,6 +3,7 @@
 #include "sqlite3.h"
 #include "usbSerialAdapter.h"
 #include "Gost.h"
+#include "progressbar.h"
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -13,6 +14,8 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->refreshButton, SIGNAL(clicked()), this, SLOT(refreshDeviceList()));
     connect(ui->openButton, SIGNAL(clicked()), this, SLOT(openSelectedDir()));
     connect(ui->installButton, SIGNAL(clicked()), this, SLOT(installEncryptor()));
+	connect(ui->deviceList, SIGNAL(itemSelectionChanged()), this, SLOT(refreshButtons()));
+	refreshButtons();
 }
 
 std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> MainWindow::detectDevices()
@@ -90,9 +93,6 @@ void MainWindow::refreshDeviceList()
     ui->deviceList->resizeColumnToContents(0);
     // Add some space between device name and capacity
     ui->deviceList->header()->resizeSection(0, ui->deviceList->header()->sectionSize(0) + 20);
-//    ui->encryptButton->setEnabled(false);
-//    ui->decryptButton->setEnabled(false);
-//    ui->openButton->setEnabled(false);
 }
 
 void MainWindow::openSelectedDir()
@@ -103,6 +103,10 @@ void MainWindow::openSelectedDir()
 
 void MainWindow::installEncryptor()
 {
+	ProgressBar *bar = new ProgressBar();
+	connect(this, SIGNAL(filesCounted(int)), bar, SLOT(setupBar(int)));
+	connect(this, SIGNAL(fileCopied()), bar, SLOT(updateBar()));
+	bar->show();
     QByteArray key, hash;
     do
     {
@@ -120,7 +124,7 @@ void MainWindow::installEncryptor()
 
 	Gost g;
 	g.setKey("h47skro;,sng89o3sy6ha2qwn89sk.er");
-	g.simpleEncrypt(hash);
+	g.simpleEncrypt(key);
 	g.simpleEncrypt(serialNumber);
 
     keyfile.open(QIODevice::WriteOnly | QIODevice::Unbuffered);		
@@ -128,32 +132,35 @@ void MainWindow::installEncryptor()
 	keyfile.write(serialNumber);
     keyfile.close();
 
-	copyFiles();
+	QtConcurrent::run(this, &MainWindow::copyFiles);	
 }
 
 void MainWindow::copyFiles()
 {
 	QDir dir("./InstallationData");
 	QDir dest(ui->deviceList->selectedItems().front()->data(0, Qt::UserRole).toString());
-	dest.mkdir("VkrData");	
-	QFile::copy(dir.absoluteFilePath("vkr.exe"), dest.absoluteFilePath("vkr.exe"));
-	dest.cd("VkrData");
+	
 	dir.setFilter(QDir::Files | QDir::NoSymLinks);
 	QFileInfoList list = dir.entryInfoList();
-
+	emit filesCounted(list.count());	
 	for (QFileInfo f : list)
 	{
-		if (f.fileName() == "vkr.exe")
-			continue;
-		if (f.fileName() == "qwindows.dll")
-		{
-			dest.mkdir("platforms");
-			dest.cd("platforms");
-			QFile::copy(f.absoluteFilePath(), dest.absoluteFilePath(f.fileName()));
-			dest.cdUp();
-		}
-		else
-			QFile::copy(f.absoluteFilePath(), dest.absoluteFilePath(f.fileName()));
+		QFile::copy(f.absoluteFilePath(), dest.absoluteFilePath(f.fileName()));
+		emit fileCopied();
+	}
+}
+
+void MainWindow::refreshButtons()
+{
+	if (ui->deviceList->selectedItems().size() == 0)
+	{
+		ui->installButton->setEnabled(false);
+		ui->openButton->setEnabled(false);
+	}
+	else
+	{
+		ui->installButton->setEnabled(true);
+		ui->openButton->setEnabled(true);
 	}
 }
 

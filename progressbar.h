@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include "ui_progressbar.h"
+#include <Windows.h>
 
 class ProgressBar : public QWidget
 {
@@ -11,6 +12,10 @@ class ProgressBar : public QWidget
 public:
 	ProgressBar(QWidget *parent = 0);
 	~ProgressBar();
+
+public slots:
+	void setupBar(int filesCount);
+	void updateBar();
 
 private:
 	Ui::ProgressBar ui;

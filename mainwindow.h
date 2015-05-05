@@ -17,6 +17,7 @@
 #include <random>
 #include <QFile>
 #include <QDir>
+#include <QtConcurrent/QtConcurrent>
 
 namespace Ui {
 class MainWindow;
@@ -43,6 +44,13 @@ private:
     QByteArray generateHash(QByteArray &data);
     Ui::MainWindow *ui;
     DBManager db;
+
+private slots:
+	void refreshButtons();
+
+signals:
+	void fileCopied();
+	void filesCounted(int filesCount);
 
 };
 
