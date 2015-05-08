@@ -1,9 +1,4 @@
 #include "mainwindow.h"
-#include "ui_mainwindow.h"
-#include "sqlite3.h"
-#include "usbSerialAdapter.h"
-#include "Gost.h"
-#include "progressbar.h"
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -72,7 +67,7 @@ void MainWindow::fillDeviceList(std::unique_ptr<std::vector<std::tuple<QString, 
 QByteArray MainWindow::generateKey()
 {
     QByteArray key;
-    std::mt19937 randGenerator(std::rand());
+    std::mt19937 randGenerator(*seed);
     std::uniform_int_distribution<int> distribution(std::numeric_limits<char>::min(), std::numeric_limits<char>::max());
     for(int i = 0; i < 32; i++)
     {
@@ -103,36 +98,9 @@ void MainWindow::openSelectedDir()
 
 void MainWindow::installEncryptor()
 {
-	ProgressBar *bar = new ProgressBar();
-	connect(this, SIGNAL(filesCounted(int)), bar, SLOT(setupBar(int)));
-	connect(this, SIGNAL(fileCopied()), bar, SLOT(updateBar()));
-	bar->show();
-    QByteArray key, hash;
-    do
-    {
-        key = generateKey();
-        hash = generateHash(key);
-    }
-    while(db.hashExists(hash));
-    db.addHash(hash);
-
-    auto selectedDevice = ui->deviceList->selectedItems().front();
-	QByteArray serialNumber(usbAdapter::getSerialNumber(selectedDevice->data(0, Qt::UserRole).toString().at(0).toLatin1()));
-	
-    QFile keyfile(selectedDevice->data(0, Qt::UserRole).toString() + "Vkr.key");
-    keyfile.setPermissions(QFileDevice::ReadUser | QFileDevice::WriteUser);
-
-	Gost g;
-	g.setKey("h47skro;,sng89o3sy6ha2qwn89sk.er");
-	g.simpleEncrypt(key);
-	g.simpleEncrypt(serialNumber);
-
-    keyfile.open(QIODevice::WriteOnly | QIODevice::Unbuffered);		
-    keyfile.write(key);
-	keyfile.write(serialNumber);
-    keyfile.close();
-
-	QtConcurrent::run(this, &MainWindow::copyFiles);	
+	randomSeedWindow *sw = new randomSeedWindow();
+	connect(sw, SIGNAL(generatedSeed(QByteArray)), this, SLOT(setupSeed(QByteArray)));
+	sw->show();		
 }
 
 void MainWindow::copyFiles()
@@ -167,4 +135,48 @@ void MainWindow::refreshButtons()
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+void MainWindow::setupSeed(QByteArray seed)
+{
+	seedArr = seed;
+	this->seed = std::make_unique<std::seed_seq>(seedArr.begin(), seedArr.end());
+	generateKeyFile();
+}
+
+void MainWindow::generateKeyFile()
+{
+	ProgressBar *bar = new ProgressBar();
+	connect(this, SIGNAL(filesCounted(int)), bar, SLOT(setupBar(int)));
+	connect(this, SIGNAL(fileCopied()), bar, SLOT(updateBar()));
+	bar->show();
+	QByteArray key, hash;
+	do
+	{
+		key = generateKey();
+		hash = generateHash(key);
+		seedArr.append(std::rand());
+		this->seed = std::make_unique<std::seed_seq>(seedArr.begin(), seedArr.end());
+	} while (db.hashExists(hash));
+	seed.reset(nullptr);
+	seedArr.fill(0);
+	db.addHash(hash);
+
+	auto selectedDevice = ui->deviceList->selectedItems().front();
+	QByteArray serialNumber(usbAdapter::getSerialNumber(selectedDevice->data(0, Qt::UserRole).toString().at(0).toLatin1()));
+
+	QFile keyfile(selectedDevice->data(0, Qt::UserRole).toString() + "Vkr.key");
+	keyfile.setPermissions(QFileDevice::ReadUser | QFileDevice::WriteUser);
+
+	Gost g;
+	g.setKey("h47skro;,sng89o3sy6ha2qwn89sk.er");
+	g.simpleEncrypt(key);
+	g.simpleEncrypt(serialNumber);
+
+	keyfile.open(QIODevice::WriteOnly | QIODevice::Unbuffered);
+	keyfile.write(key);
+	keyfile.write(serialNumber);
+	keyfile.close();
+
+	QtConcurrent::run(this, &MainWindow::copyFiles);
 }

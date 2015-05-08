@@ -4,6 +4,7 @@
 #define NOMINMAX
 
 #include <QMainWindow>
+#include "ui_mainwindow.h"
 #include <QDesktopServices>
 #include <vector>
 #include <tuple>
@@ -18,6 +19,11 @@
 #include <QFile>
 #include <QDir>
 #include <QtConcurrent/QtConcurrent>
+#include "sqlite3.h"
+#include "usbSerialAdapter.h"
+#include "Gost.h"
+#include "progressbar.h"
+#include "randomseedwindow.h"
 
 namespace Ui {
 class MainWindow;
@@ -39,14 +45,19 @@ public slots:
 private:
     std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> detectDevices();
     void fillDeviceList(std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> pDevices);
-	void copyFiles();
-    QByteArray generateKey();
+	void copyFiles();	
+	QByteArray generateKey();    
     QByteArray generateHash(QByteArray &data);
     Ui::MainWindow *ui;
     DBManager db;
+	std::unique_ptr<std::seed_seq> seed;
+	QByteArray seedArr;
 
 private slots:
 	void refreshButtons();
+	void setupSeed(QByteArray seed);
+	void generateKeyFile();
+	
 
 signals:
 	void fileCopied();
