@@ -19,6 +19,7 @@
 #include <QFile>
 #include <QDir>
 #include <QtConcurrent/QtConcurrent>
+#include <QMessageBox>
 #include "sqlite3.h"
 #include "usbSerialAdapter.h"
 #include "Gost.h"
@@ -46,12 +47,14 @@ private:
     std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> detectDevices();
     void fillDeviceList(std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> pDevices);
 	void copyFiles();	
+	void getInstallationSize();
 	QByteArray generateKey();    
     QByteArray generateHash(QByteArray &data);
     Ui::MainWindow *ui;
     DBManager db;
 	std::unique_ptr<std::seed_seq> seed;
 	QByteArray seedArr;
+	qint64 installationSize;
 
 private slots:
 	void refreshButtons();

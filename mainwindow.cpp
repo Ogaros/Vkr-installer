@@ -11,6 +11,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->installButton, SIGNAL(clicked()), this, SLOT(installEncryptor()));
 	connect(ui->deviceList, SIGNAL(itemSelectionChanged()), this, SLOT(refreshButtons()));
 	refreshButtons();
+	getInstallationSize();
 }
 
 std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> MainWindow::detectDevices()
@@ -60,6 +61,8 @@ void MainWindow::fillDeviceList(std::unique_ptr<std::vector<std::tuple<QString, 
         item->setData(0, Qt::UserRole, std::get<0>(pDevices->at(i)));
         // device capacity
         item->setData(1, Qt::UserRole, std::get<2>(pDevices->at(i)));
+		// device availible size
+		item->setData(2, Qt::UserRole, std::get<3>(pDevices->at(i)));
         ui->deviceList->addTopLevelItem(item);
     }
 }
@@ -97,10 +100,24 @@ void MainWindow::openSelectedDir()
 }
 
 void MainWindow::installEncryptor()
-{
-	randomSeedWindow *sw = new randomSeedWindow();
-	connect(sw, SIGNAL(generatedSeed(QByteArray)), this, SLOT(setupSeed(QByteArray)));
-	sw->show();		
+{	
+	if (installationSize >= ui->deviceList->selectedItems().front()->data(2, Qt::UserRole).toLongLong())
+	{
+		randomSeedWindow *sw = new randomSeedWindow();
+		connect(sw, SIGNAL(generatedSeed(QByteArray)), this, SLOT(setupSeed(QByteArray)));
+		sw->show();
+	}
+	else
+	{
+		QMessageBox box;
+		box.setText("Not enough free space on the device!");
+		box.setInformativeText("You need at least " + QString::number(installationSize) + " MB of free space to install the encryptor.");
+		box.setStandardButtons(QMessageBox::Ok);
+		box.setIcon(QMessageBox::Critical);
+		box.setWindowModality(Qt::ApplicationModal);
+		MessageBeep(MB_OK);
+		box.exec();
+	}
 }
 
 void MainWindow::copyFiles()
@@ -179,4 +196,17 @@ void MainWindow::generateKeyFile()
 	keyfile.close();
 
 	QtConcurrent::run(this, &MainWindow::copyFiles);
+}
+
+void MainWindow::getInstallationSize()
+{
+	installationSize = 0;
+	QDir dir("./InstallationData");
+	dir.setFilter(QDir::Files | QDir::NoSymLinks);
+	QFileInfoList list = dir.entryInfoList();
+	for (QFileInfo f : list)
+	{
+		installationSize += f.size();
+	}
+	installationSize = (installationSize / 1024) / 1024;  // megabytes
 }
