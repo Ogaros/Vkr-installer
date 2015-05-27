@@ -21,6 +21,7 @@
 #include <QtConcurrent/QtConcurrent>
 #include <QMessageBox>
 #include "sqlite3.h"
+#include <time.h>
 #include "usbSerialAdapter.h"
 #include "Gost.h"
 #include "progressbar.h"
@@ -52,9 +53,8 @@ private:
     QByteArray generateHash(QByteArray &data);
     Ui::MainWindow *ui;
     DBManager db;
-	std::unique_ptr<std::seed_seq> seed;
-	QByteArray seedArr;
 	qint64 installationSize;
+	std::mt19937 randGenerator;
 
 private slots:
 	void refreshButtons();

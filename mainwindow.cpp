@@ -12,6 +12,7 @@ MainWindow::MainWindow(QWidget *parent) :
 	connect(ui->deviceList, SIGNAL(itemSelectionChanged()), this, SLOT(refreshButtons()));
 	refreshButtons();
 	getInstallationSize();
+	std::srand(time(nullptr));
 }
 
 std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> MainWindow::detectDevices()
@@ -41,7 +42,7 @@ std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> MainW
             dwDrives = dwDrives >> 1;
             path[0]++;
         }
-    pDevices->emplace_back("D:\\Users\\Ogare\\Desktop\\InstallTest\\", "Test folder", 0, 0);
+    //pDevices->emplace_back("D:\\Users\\Ogare\\Desktop\\InstallTest\\", "Test folder", 0, 0);
     return pDevices;
 }
 
@@ -69,14 +70,13 @@ void MainWindow::fillDeviceList(std::unique_ptr<std::vector<std::tuple<QString, 
 
 QByteArray MainWindow::generateKey()
 {
-    QByteArray key;
-    std::mt19937 randGenerator(*seed);
+    QByteArray key; 
     std::uniform_int_distribution<int> distribution(std::numeric_limits<char>::min(), std::numeric_limits<char>::max());
-    for(int i = 0; i < 32; i++)
+    for(int i = 0; i < 32 * 8; i++)
     {
         key.append(distribution(randGenerator));
     }
-    return key;
+	return QCryptographicHash::hash(key, QCryptographicHash::Sha256);
 }
 
 QByteArray MainWindow::generateHash(QByteArray &data)
@@ -101,7 +101,8 @@ void MainWindow::openSelectedDir()
 
 void MainWindow::installEncryptor()
 {	
-	if (installationSize >= ui->deviceList->selectedItems().front()->data(2, Qt::UserRole).toLongLong())
+	qint64 avSize = ui->deviceList->selectedItems().front()->data(2, Qt::UserRole).toLongLong();
+	if (installationSize <= avSize)
 	{
 		randomSeedWindow *sw = new randomSeedWindow();
 		connect(sw, SIGNAL(generatedSeed(QByteArray)), this, SLOT(setupSeed(QByteArray)));
@@ -130,7 +131,15 @@ void MainWindow::copyFiles()
 	emit filesCounted(list.count());	
 	for (QFileInfo f : list)
 	{
-		QFile::copy(f.absoluteFilePath(), dest.absoluteFilePath(f.fileName()));
+		if (f.fileName() == "qwindows.dll")
+		{
+			dest.mkdir("platforms");
+			dest.cd("platforms");
+			QFile::copy(f.absoluteFilePath(), dest.absoluteFilePath(f.fileName()));
+			dest.cdUp();
+		}
+		else
+			QFile::copy(f.absoluteFilePath(), dest.absoluteFilePath(f.fileName()));
 		emit fileCopied();
 	}
 }
@@ -156,8 +165,8 @@ MainWindow::~MainWindow()
 
 void MainWindow::setupSeed(QByteArray seed)
 {
-	seedArr = seed;
-	this->seed = std::make_unique<std::seed_seq>(seedArr.begin(), seedArr.end());
+	std::seed_seq s(seed.begin(), seed.end());
+	randGenerator.seed(s);
 	generateKeyFile();
 }
 
@@ -172,15 +181,12 @@ void MainWindow::generateKeyFile()
 	{
 		key = generateKey();
 		hash = generateHash(key);
-		seedArr.append(std::rand());
-		this->seed = std::make_unique<std::seed_seq>(seedArr.begin(), seedArr.end());
 	} while (db.hashExists(hash));
-	seed.reset(nullptr);
-	seedArr.fill(0);
 	db.addHash(hash);
 
 	auto selectedDevice = ui->deviceList->selectedItems().front();
 	QByteArray serialNumber(usbAdapter::getSerialNumber(selectedDevice->data(0, Qt::UserRole).toString().at(0).toLatin1()));
+	serialNumber.append('\0');
 
 	QFile keyfile(selectedDevice->data(0, Qt::UserRole).toString() + "Vkr.key");
 	keyfile.setPermissions(QFileDevice::ReadUser | QFileDevice::WriteUser);

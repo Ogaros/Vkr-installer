@@ -18,8 +18,11 @@ randomSeedWindow::~randomSeedWindow()
 
 void randomSeedWindow::keyPressEvent(QKeyEvent *e)
 {
-	quint64 t = timer.restart();	
-	seed.append(e->text());
+	quint64 t = timer.restart();		
+	if (e->text().isEmpty())
+		seed.append(e->key());
+	else
+		seed.append(e->text());
 	for (char &ch : seed)
 	{
 		ch ^= t;
